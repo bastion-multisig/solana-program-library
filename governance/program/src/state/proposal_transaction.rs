@@ -48,6 +48,24 @@ pub struct AccountMetaData {
     pub is_writable: bool,
 }
 
+/// InstructionData wrapper. It can be removed once Borsh serialization for Instruction is supported in the SDK
+#[derive(Clone, Debug, PartialEq, BorshDeserialize, BorshSerialize, BorshSchema)]
+pub struct InstructionDataBrief {
+    /// Metadata for what accounts should be passed to the instruction processor
+    pub accounts: Vec<AccountMetaDataBrief>,
+    /// Opaque data passed to the instruction processor
+    pub data: Vec<u8>,
+}
+
+/// Account metadata used to define Instructions
+#[derive(Clone, Debug, PartialEq, BorshDeserialize, BorshSerialize, BorshSchema)]
+pub struct AccountMetaDataBrief {
+    /// True if an Instruction requires a Transaction signature matching `pubkey`.
+    pub is_signer: bool,
+    /// True if the `pubkey` can be loaded as a read-write account.
+    pub is_writable: bool,
+}
+
 impl From<Instruction> for InstructionData {
     fn from(instruction: Instruction) -> Self {
         InstructionData {

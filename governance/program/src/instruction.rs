@@ -10,7 +10,9 @@ use crate::{
         native_treasury::get_native_treasury_address,
         program_metadata::get_program_metadata_address,
         proposal::{get_proposal_address, VoteType},
-        proposal_transaction::{get_proposal_transaction_address, InstructionData},
+        proposal_transaction::{
+            get_proposal_transaction_address, InstructionData, InstructionDataBrief,
+        },
         realm::SetRealmAuthorityAction,
         realm::{get_governing_token_holding_address, get_realm_address, RealmConfigArgs},
         realm_config::get_realm_config_address,
@@ -470,6 +472,31 @@ pub enum GovernanceInstruction {
     ///  2. `[signer]` Payer
     ///  3. `[]` System
     CreateNativeTreasury,
+
+    ///   0. `[]` Governance account
+    ///   1. `[writable]` Proposal account
+    ///   2. `[]` TokenOwnerRecord account of the Proposal owner
+    ///   3. `[signer]` Governance Authority (Token Owner or Governance Delegate)
+    ///   4. `[writable]` ProposalTransaction, account. PDA seeds: ['governance', proposal, option_index, index]
+    ///   5. `[signer]` Payer
+    ///   6. `[]` System program
+    ///   7. `[]` Rent sysvar
+    ///   9. `[]` Zero or more inner instruction pubkeys. Starting with program ids
+    InsertTransactionBrief {
+        #[allow(dead_code)]
+        /// The index of the option the transaction is for
+        option_index: u8,
+        #[allow(dead_code)]
+        /// Transaction index to be inserted at.
+        index: u16,
+        #[allow(dead_code)]
+        /// Waiting time (in seconds) between vote period ending and this being eligible for execution
+        hold_up_time: u32,
+
+        #[allow(dead_code)]
+        /// Instructions Data
+        instructions: Vec<InstructionDataBrief>,
+    },
 }
 
 /// Creates CreateRealm instruction
@@ -1192,6 +1219,61 @@ pub fn insert_transaction(
     ];
 
     let instruction = GovernanceInstruction::InsertTransaction {
+        option_index,
+        index,
+        hold_up_time,
+        instructions,
+    };
+
+    Instruction {
+        program_id: *program_id,
+        accounts,
+        data: instruction.try_to_vec().unwrap(),
+    }
+}
+
+/// Creates InsertTransaction instruction
+#[allow(clippy::too_many_arguments)]
+pub fn insert_transaction_brief(
+    program_id: &Pubkey,
+    // Accounts
+    governance: &Pubkey,
+    proposal: &Pubkey,
+    token_owner_record: &Pubkey,
+    governance_authority: &Pubkey,
+    payer: &Pubkey,
+    inner_accounts: Vec<Pubkey>,
+    // Args
+    option_index: u8,
+    index: u16,
+    hold_up_time: u32,
+    instructions: Vec<InstructionDataBrief>,
+) -> Instruction {
+    let proposal_transaction_address = get_proposal_transaction_address(
+        program_id,
+        proposal,
+        &option_index.to_le_bytes(),
+        &index.to_le_bytes(),
+    );
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(*governance, false),
+        AccountMeta::new(*proposal, false),
+        AccountMeta::new_readonly(*token_owner_record, false),
+        AccountMeta::new_readonly(*governance_authority, true),
+        AccountMeta::new(proposal_transaction_address, false),
+        AccountMeta::new(*payer, true),
+        AccountMeta::new_readonly(system_program::id(), false),
+        AccountMeta::new_readonly(sysvar::rent::id(), false),
+    ];
+    accounts.extend(
+        inner_accounts
+            .iter()
+            .map(|acc| AccountMeta::new_readonly(acc.clone(), false))
+            .collect::<Vec<_>>(),
+    );
+
+    let instruction = GovernanceInstruction::InsertTransactionBrief {
         option_index,
         index,
         hold_up_time,
