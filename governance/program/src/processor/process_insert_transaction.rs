@@ -31,6 +31,8 @@ pub fn process_insert_transaction(
     option_index: u8,
     instruction_index: u16,
     hold_up_time: u32,
+    max_size_option: u8,
+    max_size: u64,
     instructions: Vec<InstructionData>,
 ) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
@@ -97,6 +99,12 @@ pub fn process_insert_transaction(
         reserved_v2: [0; 8],
     };
 
+    let max_size = if max_size_option > 0 {
+        Some(max_size as usize)
+    } else {
+        None
+    };
+
     create_and_serialize_account_signed::<ProposalTransactionV2>(
         payer_info,
         proposal_transaction_info,
@@ -109,6 +117,7 @@ pub fn process_insert_transaction(
         program_id,
         system_info,
         rent,
+        max_size,
     )?;
 
     Ok(())

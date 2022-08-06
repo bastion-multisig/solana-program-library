@@ -123,6 +123,7 @@ pub fn process_set_realm_config(
                 program_id,
                 system_info,
                 &rent,
+                None,
             )?;
             false // RealmConfigAccount didn't exist and was created
         } else {

@@ -165,6 +165,7 @@ pub fn process_create_proposal(
         program_id,
         system_info,
         &rent,
+        None,
     )?;
 
     governance_data.proposals_count = governance_data.proposals_count.checked_add(1).unwrap();

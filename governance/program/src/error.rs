@@ -397,6 +397,10 @@ pub enum GovernanceError {
     /// Cannot Relinquish in Voting state
     #[error("Cannot Relinquish in Voting state")]
     CannotRelinquishInVotingState,
+
+    /// Transaction at the given index for the Proposal doesn't exists
+    #[error("Transaction at the given index for the Proposal doesn't exists")]
+    TransactionDoesNotExists,
 }
 
 impl PrintProgramError for GovernanceError {

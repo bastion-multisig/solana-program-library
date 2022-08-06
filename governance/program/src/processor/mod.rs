@@ -15,8 +15,8 @@ mod process_deposit_governing_tokens;
 mod process_execute_transaction;
 mod process_finalize_vote;
 mod process_flag_transaction_error;
+mod process_insert_instruction;
 mod process_insert_transaction;
-mod process_insert_transaction_brief;
 mod process_relinquish_vote;
 mod process_remove_signatory;
 mod process_remove_transaction;
@@ -45,8 +45,8 @@ use process_deposit_governing_tokens::*;
 use process_execute_transaction::*;
 use process_finalize_vote::*;
 use process_flag_transaction_error::*;
+use process_insert_instruction::*;
 use process_insert_transaction::*;
-use process_insert_transaction_brief::*;
 use process_relinquish_vote::*;
 use process_remove_signatory::*;
 use process_remove_transaction::*;
@@ -78,16 +78,23 @@ pub fn process_instruction(
         option_index,
         index,
         hold_up_time,
+        max_size_option,
+        max_size,
         instructions: _,
     } = instruction
     {
         // Do not dump instruction data into logs
         msg!(
-            "GOVERNANCE-INSTRUCTION: InsertInstruction {{option_index: {:?}, index: {:?}, hold_up_time: {:?} }}",
+            "GOVERNANCE-INSTRUCTION: InsertTransaction {{option_index: {:?}, index: {:?}, hold_up_time: {:?}, max_size_option: {:?}, max_size: {:?} }}",
             option_index,
             index,
-            hold_up_time
+            hold_up_time,
+            max_size_option,
+            max_size
         );
+    } else if let GovernanceInstruction::InsertInstruction { instruction: _ } = instruction {
+        // Do not dump instruction data into logs
+        msg!("GOVERNANCE-INSTRUCTION: InsertInstruction",);
     } else {
         msg!("GOVERNANCE-INSTRUCTION: {:?}", instruction);
     }
@@ -176,6 +183,8 @@ pub fn process_instruction(
             option_index,
             index,
             hold_up_time,
+            max_size_option,
+            max_size,
             instructions,
         } => process_insert_transaction(
             program_id,
@@ -183,22 +192,14 @@ pub fn process_instruction(
             option_index,
             index,
             hold_up_time,
+            max_size_option,
+            max_size,
             instructions,
         ),
 
-        GovernanceInstruction::InsertTransactionBrief {
-            option_index,
-            index,
-            hold_up_time,
-            instructions,
-        } => process_insert_transaction_brief(
-            program_id,
-            accounts,
-            option_index,
-            index,
-            hold_up_time,
-            instructions,
-        ),
+        GovernanceInstruction::InsertInstruction { instruction } => {
+            process_insert_instruction(program_id, accounts, instruction)
+        }
 
         GovernanceInstruction::RemoveTransaction {} => {
             process_remove_transaction(program_id, accounts)

@@ -122,6 +122,7 @@ pub fn process_create_realm(
             program_id,
             system_info,
             rent,
+            None,
         )?;
     }
 
@@ -154,6 +155,7 @@ pub fn process_create_realm(
         program_id,
         system_info,
         rent,
+        None,
     )?;
 
     Ok(())

@@ -89,6 +89,7 @@ pub fn create_and_serialize_account_signed<'a, T: BorshSerialize + AccountMaxSiz
     program_id: &Pubkey,
     system_info: &AccountInfo<'a>,
     rent: &Rent,
+    max_size: Option<usize>,
 ) -> Result<(), ProgramError> {
     create_and_serialize_account_with_owner_signed(
         payer_info,
@@ -99,6 +100,7 @@ pub fn create_and_serialize_account_signed<'a, T: BorshSerialize + AccountMaxSiz
         program_id, // By default use PDA program_id as the owner of the account
         system_info,
         rent,
+        max_size,
     )
 }
 
@@ -114,6 +116,7 @@ pub fn create_and_serialize_account_with_owner_signed<'a, T: BorshSerialize + Ac
     owner_program_id: &Pubkey,
     system_info: &AccountInfo<'a>,
     rent: &Rent,
+    max_size: Option<usize>,
 ) -> Result<(), ProgramError> {
     // Get PDA and assert it's the same as the requested account address
     let (account_address, bump_seed) =
@@ -136,11 +139,13 @@ pub fn create_and_serialize_account_with_owner_signed<'a, T: BorshSerialize + Ac
         (Some(serialized_data), account_size)
     };
 
+    let space = max_size.unwrap_or(account_size);
+
     let mut signers_seeds = account_address_seeds.to_vec();
     let bump = &[bump_seed];
     signers_seeds.push(bump);
 
-    let rent_exempt_lamports = rent.minimum_balance(account_size).max(1);
+    let rent_exempt_lamports = rent.minimum_balance(space).max(1);
 
     // If the account has some lamports already it can't be created using create_account instruction
     // Anybody can send lamports to a PDA and by doing so create the account and perform DoS attack by blocking create_account
@@ -159,7 +164,7 @@ pub fn create_and_serialize_account_with_owner_signed<'a, T: BorshSerialize + Ac
         }
 
         invoke_signed(
-            &system_instruction::allocate(account_info.key, account_size as u64),
+            &system_instruction::allocate(account_info.key, space as u64),
             &[account_info.clone(), system_info.clone()],
             &[&signers_seeds[..]],
         )?;
@@ -175,7 +180,7 @@ pub fn create_and_serialize_account_with_owner_signed<'a, T: BorshSerialize + Ac
             payer_info.key,
             account_info.key,
             rent_exempt_lamports,
-            account_size as u64,
+            space as u64,
             owner_program_id,
         );
 
@@ -195,7 +200,7 @@ pub fn create_and_serialize_account_with_owner_signed<'a, T: BorshSerialize + Ac
             .data
             .borrow_mut()
             .copy_from_slice(&serialized_data);
-    } else if account_size > 0 {
+    } else if space > 0 {
         account_data.serialize(&mut *account_info.data.borrow_mut())?;
     }
 
