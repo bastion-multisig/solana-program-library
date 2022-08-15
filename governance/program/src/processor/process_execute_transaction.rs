@@ -1,5 +1,7 @@
 //! Program state processor
 
+use std::iter;
+
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     clock::Clock,
@@ -52,7 +54,7 @@ pub fn process_execute_transaction(program_id: &Pubkey, accounts: &[AccountInfo]
     // This is an overhead but shouldn't be a showstopper because if we can invoke the parent instruction with that many accounts
     // then we should also be able to invoke all the nested ones
     // TODO: Optimize the invocation to split the provided accounts for each individual instruction
-    let instruction_account_infos = account_info_iter.as_slice();
+    let remaining_account_infos = account_info_iter.as_slice();
 
     let mut signers_seeds: Vec<&[&[u8]]> = vec![];
 
@@ -70,7 +72,7 @@ pub fn process_execute_transaction(program_id: &Pubkey, accounts: &[AccountInfo]
         Pubkey::find_program_address(&treasury_seeds, program_id);
     let treasury_bump = &[treasury_bump_seed];
 
-    if instruction_account_infos
+    if remaining_account_infos
         .iter()
         .any(|a| a.key == &treasury_address)
     {
@@ -79,7 +81,19 @@ pub fn process_execute_transaction(program_id: &Pubkey, accounts: &[AccountInfo]
     }
 
     for instruction in instructions {
-        invoke_signed(&instruction, instruction_account_infos, &signers_seeds[..])?;
+        let instruction_account_infos = remaining_account_infos
+            .iter()
+            .filter(|account_info| {
+                instruction.accounts
+                    .iter()
+                    .map(|account| &account.pubkey)
+                    .chain(iter::once(&instruction.program_id.clone()))
+                    .any(|pubkey| pubkey.eq(account_info.key))
+                })
+            .map(Clone::clone)
+            .collect::<Vec<_>>();
+
+        invoke_signed(&instruction, &instruction_account_infos, &signers_seeds[..])?;
     }
 
     // Update proposal and instruction accounts
